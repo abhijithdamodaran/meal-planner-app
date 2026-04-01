@@ -1,0 +1,219 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Household {
+  id         String   @id @default(cuid())
+  name       String
+  inviteCode String   @unique @default(cuid())
+  createdAt  DateTime @default(now())
+
+  users         User[]
+  mealPlans     MealPlan[]
+  shoppingLists ShoppingList[]
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String
+  householdId  String
+  createdAt    DateTime @default(now())
+
+  household     Household        @relation(fields: [householdId], references: [id])
+  preferences   UserPreferences?
+  foodLogs      FoodLog[]
+  customFoods   CustomFood[]
+  customRecipes CustomRecipe[]
+  shoppingItems ShoppingListItem[]
+}
+
+model UserPreferences {
+  id                  String   @id @default(cuid())
+  userId              String   @unique
+  isVegetarian        Boolean  @default(false)
+  isVegan             Boolean  @default(false)
+  isLactoseIntolerant Boolean  @default(false)
+  isGlutenFree        Boolean  @default(false)
+  otherAllergens      String   @default("[]") // JSON string — string[]
+  calorieGoal         Int?
+  proteinGoalG        Float?
+  carbsGoalG          Float?
+  fatGoalG            Float?
+  updatedAt           DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id])
+}
+
+model FoodItem {
+  id              String   @id @default(cuid())
+  offId           String   @unique // Open Food Facts barcode or id
+  name            String
+  brand           String?
+  per100gCalories Float?
+  per100gProtein  Float?
+  per100gCarbs    Float?
+  per100gFat      Float?
+  servingSizeG    Float?
+  cachedAt        DateTime @default(now())
+
+  foodLogs        FoodLog[]
+  mealPlanEntries MealPlanEntry[]
+}
+
+model CustomFood {
+  id              String   @id @default(cuid())
+  userId          String
+  name            String
+  brand           String?
+  per100gCalories Float?
+  per100gProtein  Float?
+  per100gCarbs    Float?
+  per100gFat      Float?
+  servingSizeG    Float?
+  createdAt       DateTime @default(now())
+
+  user            User            @relation(fields: [userId], references: [id])
+  foodLogs        FoodLog[]
+  mealPlanEntries MealPlanEntry[]
+}
+
+model Recipe {
+  id                 String   @id @default(cuid())
+  externalId         String
+  source             String // "spoonacular" | "themealdb"
+  title              String
+  imageUrl           String?
+  cuisines           String   @default("[]") // JSON string
+  diets              String   @default("[]") // JSON string
+  allergens          String   @default("[]") // JSON string — empty for TheMealDB
+  ingredients        String   @default("[]") // JSON string — {name, amount, unit}[]
+  instructions       String   @default("[]") // JSON string — {step, text}[]
+  readyInMinutes     Int?
+  servings           Int?
+  caloriesPerServing Float?
+  proteinPerServing  Float?
+  carbsPerServing    Float?
+  fatPerServing      Float?
+  cachedAt           DateTime @default(now())
+
+  foodLogs        FoodLog[]
+  mealPlanEntries MealPlanEntry[]
+
+  @@unique([externalId, source])
+}
+
+model CustomRecipe {
+  id                 String   @id @default(cuid())
+  userId             String
+  title              String
+  imageUrl           String?
+  allergens          String   @default("[]") // JSON string
+  ingredients        String   @default("[]") // JSON string
+  instructions       String   @default("[]") // JSON string
+  servings           Int?
+  caloriesPerServing Float?
+  proteinPerServing  Float?
+  carbsPerServing    Float?
+  fatPerServing      Float?
+  createdAt          DateTime @default(now())
+
+  user            User            @relation(fields: [userId], references: [id])
+  foodLogs        FoodLog[]
+  mealPlanEntries MealPlanEntry[]
+}
+
+model MealPlan {
+  id          String   @id @default(cuid())
+  householdId String
+  weekStart   DateTime // Always a Monday at 00:00:00 UTC
+
+  household Household     @relation(fields: [householdId], references: [id])
+  entries   MealPlanEntry[]
+
+  @@unique([householdId, weekStart])
+}
+
+model MealPlanEntry {
+  id             String  @id @default(cuid())
+  mealPlanId     String
+  dayOfWeek      Int // 0=Mon, 1=Tue, ..., 6=Sun
+  mealType       String // "breakfast" | "lunch" | "dinner" | "snack"
+  recipeId       String?
+  customRecipeId String?
+  foodItemId     String?
+  customFoodId   String?
+  customName     String?
+  servings       Float   @default(1)
+  notes          String?
+
+  mealPlan     MealPlan      @relation(fields: [mealPlanId], references: [id])
+  recipe       Recipe?       @relation(fields: [recipeId], references: [id])
+  customRecipe CustomRecipe? @relation(fields: [customRecipeId], references: [id])
+  foodItem     FoodItem?     @relation(fields: [foodItemId], references: [id])
+  customFood   CustomFood?   @relation(fields: [customFoodId], references: [id])
+}
+
+model FoodLog {
+  id             String   @id @default(cuid())
+  userId         String
+  loggedDate     DateTime // Stored as midnight UTC for the day
+  mealType       String // "breakfast" | "lunch" | "dinner" | "snack"
+  recipeId       String?
+  customRecipeId String?
+  foodItemId     String?
+  customFoodId   String?
+  customName     String?
+  quantity       Float
+  unit           String // "g" | "ml" | "serving"
+  calories       Float
+  proteinG       Float
+  carbsG         Float
+  fatG           Float
+  loggedAt       DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id])
+  recipe       Recipe?       @relation(fields: [recipeId], references: [id])
+  customRecipe CustomRecipe? @relation(fields: [customRecipeId], references: [id])
+  foodItem     FoodItem?     @relation(fields: [foodItemId], references: [id])
+  customFood   CustomFood?   @relation(fields: [customFoodId], references: [id])
+}
+
+model ShoppingList {
+  id          String   @id @default(cuid())
+  householdId String
+  name        String
+  createdAt   DateTime @default(now())
+
+  household Household        @relation(fields: [householdId], references: [id])
+  items     ShoppingListItem[]
+}
+
+model ShoppingListItem {
+  id             String   @id @default(cuid())
+  shoppingListId String
+  ingredientName String
+  quantity       Float?
+  unit           String?
+  isChecked      Boolean  @default(false)
+  addedByUserId  String
+  addedAt        DateTime @default(now())
+
+  shoppingList ShoppingList @relation(fields: [shoppingListId], references: [id])
+  addedBy      User         @relation(fields: [addedByUserId], references: [id])
+}
+
+model ApiUsage {
+  id           String   @id @default(cuid())
+  apiName      String // "spoonacular"
+  usageDate    DateTime // Stored as midnight UTC for the day
+  requestCount Int      @default(0)
+
+  @@unique([apiName, usageDate])
+}

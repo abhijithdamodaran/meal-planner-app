@@ -1,0 +1,112 @@
+# Folder Structure
+
+```
+meal-planner-app/
+│
+├── prisma/                          # Database layer
+│   ├── schema.prisma                # All table definitions (your DB blueprint)
+│   ├── migrations/                  # Auto-generated SQL history — never edit manually
+│   │   └── 20260401_init/
+│   │       └── migration.sql
+│   └── dev.db                       # Your local SQLite database file
+│
+├── prisma.config.ts                 # Prisma 7 config — holds the DB connection URL
+│
+├── src/
+│   ├── middleware.ts                 # Runs on EVERY request before the page loads.
+│   │                                # Checks for a login cookie → redirects to /login if missing.
+│   │                                # This is what protects all the app pages.
+│   │
+│   ├── app/                         # Next.js App Router — folder = URL route
+│   │   │
+│   │   ├── layout.tsx               # Root HTML shell — wraps every page.
+│   │   │                            # Sets up fonts and TanStack Query provider.
+│   │   ├── page.tsx                 # "/" → immediately redirects to /dashboard
+│   │   ├── globals.css              # Global Tailwind styles
+│   │   │
+│   │   ├── (auth)/                  # Parentheses = route group (no effect on URL).
+│   │   │   │                        # Groups unauthenticated pages. Middleware lets
+│   │   │   │                        # these through without a login cookie.
+│   │   │   ├── login/page.tsx       # → /login
+│   │   │   └── register/page.tsx    # → /register
+│   │   │
+│   │   ├── (app)/                   # Route group for all protected pages.
+│   │   │   │                        # Middleware enforces login for anything here.
+│   │   │   ├── layout.tsx           # Will become the nav shell (sidebar + bottom nav)
+│   │   │   ├── dashboard/page.tsx   # → /dashboard
+│   │   │   ├── log/page.tsx         # → /log  (food logging)
+│   │   │   ├── planner/page.tsx     # → /planner  (weekly meal plan)
+│   │   │   ├── recipes/page.tsx     # → /recipes
+│   │   │   ├── fridge/page.tsx      # → /fridge  (ingredient-based search)
+│   │   │   ├── shopping/page.tsx    # → /shopping
+│   │   │   └── settings/
+│   │   │       ├── page.tsx         # → /settings
+│   │   │       └── household/       # → /settings/household (invite code, members)
+│   │   │
+│   │   └── api/                     # Backend API endpoints (same app, no separate server)
+│   │       ├── auth/
+│   │       │   ├── login/route.ts   # POST /api/auth/login
+│   │       │   ├── register/route.ts
+│   │       │   └── logout/route.ts
+│   │       ├── food/
+│   │       │   ├── search/route.ts  # GET /api/food/search?q=... (proxies Open Food Facts)
+│   │       │   └── custom/route.ts  # CRUD for user-created foods
+│   │       ├── recipes/
+│   │       │   ├── search/route.ts
+│   │       │   ├── by-ingredients/route.ts  # "What's in my fridge?"
+│   │       │   └── custom/route.ts
+│   │       ├── logs/route.ts        # Food log CRUD
+│   │       ├── planner/route.ts     # Meal plan CRUD
+│   │       └── shopping/route.ts
+│   │
+│   ├── components/                  # Reusable UI pieces
+│   │   ├── ui/                      # Generic primitives: Button, Card, Input, Modal…
+│   │   ├── food/                    # Food-specific: FoodSearchModal, MacroSummary…
+│   │   ├── recipes/                 # RecipeCard, RecipeDetail, IngredientList…
+│   │   ├── planner/                 # WeekGrid, MealSlot, DayColumn…
+│   │   ├── dashboard/               # MacroProgressBar, DailySummary, WeeklyTable…
+│   │   └── layout/
+│   │       └── QueryProvider.tsx    # Wraps the app with TanStack Query client
+│   │                                # (data fetching/caching for all pages)
+│   │
+│   ├── lib/                         # Shared backend logic
+│   │   ├── prisma.ts                # One shared DB connection (singleton pattern)
+│   │   ├── auth.ts                  # Password hashing, JWT sign/verify, cookie helpers
+│   │   │                            # Node.js only — not safe for middleware
+│   │   ├── auth-edge.ts             # JWT verify using `jose` library
+│   │   │                            # Edge Runtime safe — used only by middleware.ts
+│   │   ├── macros.ts                # calculateFoodMacros(), calculateRecipeMacros()
+│   │   │                            # Single source of truth for all macro math
+│   │   └── api/                     # Will hold Open Food Facts, Spoonacular, TheMealDB clients
+│   │
+│   ├── hooks/                       # Custom React hooks (data fetching wrappers)
+│   │   └── …                        # e.g. useFoodSearch(), useDailyLog()
+│   │
+│   ├── types/
+│   │   └── index.ts                 # All shared TypeScript types in one place
+│   │                                # SessionUser, FoodLogEntry, RecipeSummary, etc.
+│   │
+│   └── generated/
+│       └── prisma/                  # Auto-generated by Prisma — never edit this
+│                                    # Gives you full TypeScript types for your DB models
+│
+├── .env.local                       # Your secrets — never committed to git
+├── .env.example                     # Safe template — committed, shows what vars are needed
+├── .eslintrc.json                   # Linting rules (generated Prisma files are excluded)
+├── CLAUDE.md                        # Project bible
+└── FOLDER_STRUCTURE.md              # This file
+```
+
+## Key Concepts
+
+### Route Groups — `(auth)` and `(app)`
+Folders wrapped in parentheses are **route groups**. They have no effect on the URL — `/login` not `/(auth)/login`. They exist purely to organise files and apply different layouts. The `(auth)` group has no layout (plain pages). The `(app)` group will get a shared nav shell layout.
+
+### API Routes live in the same app
+There is no separate Express server. `src/app/api/**/route.ts` files are Next.js Route Handlers — they run server-side and are called by the frontend via `fetch`. This keeps the whole project in one repo and one Vercel deployment.
+
+### Two auth modules
+`auth.ts` uses `jsonwebtoken` and `bcryptjs` — both require Node.js APIs, so they only work in API routes (server-side). `auth-edge.ts` uses `jose` which is Edge Runtime compatible — this is the only auth file imported by `middleware.ts`.
+
+### Generated code
+`src/generated/prisma/` is created by running `npx prisma generate`. It contains TypeScript types for every table in your schema. Never edit it — re-run `prisma generate` any time you change `schema.prisma`.
