@@ -25,7 +25,8 @@ A meal planning and nutrition tracking web app (PWA) for a two-person household 
 | Database (local) | SQLite | Zero setup, single file |
 | Database (prod) | PostgreSQL on Supabase | Genuinely free tier (500MB, 2 projects), same Prisma schema, one env var change |
 | Auth | JWT + bcrypt (hand-rolled) | No third-party dependency; email/password only; JWT stored in httpOnly SameSite=Strict cookie |
-| Food Search API | Open Food Facts | Free, no key, huge database |
+| Food Search API 1 | Open Food Facts | Free, no key, packaged products worldwide |
+| Food Search API 2 | USDA FoodData Central | Free API key (api.data.gov); FNDDS survey DB has traditional/ethnic foods incl. Indian dishes |
 | Recipe API 1 | Spoonacular | Best data quality — allergens, dietary labels, ingredient-based search; 150 req/day free |
 | Recipe API 2 | TheMealDB | Free, no limits, used as fallback and shown alongside Spoonacular |
 | Deployment | Vercel (Next.js app) + Supabase (Postgres only) | 100% free — Vercel Hobby + Supabase free tier |
@@ -437,6 +438,8 @@ SPOONACULAR_API_KEY="your-key-here"
 |---|---|
 | Spoonacular 150 req/day limit | Track usage in `api_usage` table; fall back to TheMealDB silently |
 | Open Food Facts missing/inconsistent macros | Defensive UI: show "unknown" badge, allow manual override at log time |
+| Indian / ethnic foods not in OFF | USDA FNDDS survey DB covers traditional dishes; searched in parallel with OFF, merged by name dedup |
+| USDA_API_KEY missing | `searchUSDA` returns `[]` silently — OFF still runs, no crash |
 | TheMealDB has no allergen data | Show "allergen info unavailable" label on all TheMealDB results |
 | SQLite → Postgres JSON field behavior difference | Never filter inside JSON fields in DB queries; treat JSON as opaque blobs |
 | SQLite foreign key non-enforcement | Add `PRAGMA foreign_keys = ON` to Prisma connection config |
@@ -472,5 +475,6 @@ SPOONACULAR_API_KEY="your-key-here"
 | API | Docs | Auth | Limits |
 |---|---|---|---|
 | Open Food Facts | https://world.openfoodfacts.org/data | None | None |
+| USDA FoodData Central | https://fdc.nal.usda.gov/api-guide.html | API key (`USDA_API_KEY`) — free from api.data.gov | 3600 req/hr |
 | Spoonacular | https://spoonacular.com/food-api/docs | API key (header) | 150 points/day free |
 | TheMealDB | https://www.themealdb.com/api.php | None (use `www` subdomain) | None |

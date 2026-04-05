@@ -1,7 +1,7 @@
-export default function LogPage() {
-  return (
-    <main className="p-8">
-      <h1 className="text-2xl font-bold">Food Log — coming in Phase 3</h1>
-    </main>
-  );
+import { redirect } from "next/navigation";
+
+// /log always shows today — redirect to dated route so date is in the URL
+export default function LogIndexPage() {
+  const today = new Date().toISOString().split("T")[0];
+  redirect(`/log/${today}`);
 }

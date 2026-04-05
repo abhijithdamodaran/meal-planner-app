@@ -18,6 +18,13 @@ const geistMono = localFont({
 export const metadata: Metadata = {
   title: "Meal Planner",
   description: "Plan meals, track nutrition, and hit your macro goals.",
+  manifest: "/manifest.json",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Meal Planner",
+  },
+  themeColor: "#16a34a",
 };
 
 export default function RootLayout({
