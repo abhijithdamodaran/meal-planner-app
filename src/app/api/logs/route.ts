@@ -15,6 +15,11 @@ const addSchema = z.object({
   recipeId: z.string().optional(),
   customRecipeId: z.string().optional(),
   customName: z.string().max(200).optional(),
+  // Manual macro override for foods with missing nutrition data
+  manualCalories: z.number().min(0).optional(),
+  manualProteinG: z.number().min(0).optional(),
+  manualCarbsG: z.number().min(0).optional(),
+  manualFatG: z.number().min(0).optional(),
 });
 
 export async function GET(request: NextRequest) {
@@ -56,12 +61,30 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ error: parsed.error.issues[0].message }, { status: 400 });
   }
 
-  const { date, mealType, quantity, unit, foodItemId, customFoodId, recipeId, customRecipeId, customName } = parsed.data;
+  const {
+    date, mealType, quantity, unit,
+    foodItemId, customFoodId, recipeId, customRecipeId, customName,
+    manualCalories, manualProteinG, manualCarbsG, manualFatG,
+  } = parsed.data;
 
   // Calculate macros at log time (denormalized)
   let macros = { calories: 0, proteinG: 0, carbsG: 0, fatG: 0 };
 
-  if (foodItemId) {
+  // If all four manual values are provided, use them directly
+  const hasManualOverride =
+    manualCalories !== undefined &&
+    manualProteinG !== undefined &&
+    manualCarbsG !== undefined &&
+    manualFatG !== undefined;
+
+  if (hasManualOverride) {
+    macros = {
+      calories: manualCalories!,
+      proteinG: manualProteinG!,
+      carbsG: manualCarbsG!,
+      fatG: manualFatG!,
+    };
+  } else if (foodItemId) {
     const food = await prisma.foodItem.findUnique({ where: { id: foodItemId } });
     if (!food) return NextResponse.json({ error: "Food item not found" }, { status: 404 });
     macros = calculateFoodMacros(food, quantity, unit);

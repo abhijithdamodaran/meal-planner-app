@@ -18,6 +18,13 @@ interface Props {
 
 type Step = "search" | "configure";
 
+interface ManualMacros {
+  calories: string;
+  proteinG: string;
+  carbsG: string;
+  fatG: string;
+}
+
 const UNITS: { value: LogUnit; label: string }[] = [
   { value: "g", label: "grams (g)" },
   { value: "ml", label: "ml" },
@@ -31,6 +38,7 @@ export function FoodSearchModal({ open, onClose, date, defaultMealType }: Props)
   const [quantity, setQuantity] = useState("100");
   const [unit, setUnit] = useState<LogUnit>("g");
   const [mealType, setMealType] = useState<MealType>(defaultMealType);
+  const [manualMacros, setManualMacros] = useState<ManualMacros>({ calories: "", proteinG: "", carbsG: "", fatG: "" });
 
   const searchRef = useRef<HTMLInputElement>(null);
   const { data, isLoading } = useFoodSearch(query);
@@ -44,6 +52,7 @@ export function FoodSearchModal({ open, onClose, date, defaultMealType }: Props)
       setQuantity("100");
       setUnit("g");
       setMealType(defaultMealType);
+      setManualMacros({ calories: "", proteinG: "", carbsG: "", fatG: "" });
       setTimeout(() => searchRef.current?.focus(), 50);
     }
   }, [open, defaultMealType]);
@@ -55,8 +64,24 @@ export function FoodSearchModal({ open, onClose, date, defaultMealType }: Props)
     setStep("configure");
   }
 
+  const hasMacros = selected != null && selected.per100gCalories != null;
+  const usingManual = selected != null && !hasMacros;
+
+  // For manual macros, scale from the user's per-100g override values by qty
+  function scaleManual(per100g: string, qty: number) {
+    const v = parseFloat(per100g);
+    return isNaN(v) ? 0 : Math.round((v * qty / 100) * 10) / 10;
+  }
+
   const previewMacros = selected
-    ? calculateFoodMacros(selected, Number(quantity) || 0, unit)
+    ? usingManual
+      ? {
+          calories: scaleManual(manualMacros.calories, Number(quantity) || 0),
+          proteinG: scaleManual(manualMacros.proteinG, Number(quantity) || 0),
+          carbsG: scaleManual(manualMacros.carbsG, Number(quantity) || 0),
+          fatG: scaleManual(manualMacros.fatG, Number(quantity) || 0),
+        }
+      : calculateFoodMacros(selected, Number(quantity) || 0, unit)
     : null;
 
   async function handleAdd() {
@@ -69,6 +94,14 @@ export function FoodSearchModal({ open, onClose, date, defaultMealType }: Props)
       ...(selected.type === "food_item"
         ? { foodItemId: selected.id }
         : { customFoodId: selected.id }),
+      ...(usingManual && previewMacros
+        ? {
+            manualCalories: previewMacros.calories,
+            manualProteinG: previewMacros.proteinG,
+            manualCarbsG: previewMacros.carbsG,
+            manualFatG: previewMacros.fatG,
+          }
+        : {}),
     });
     onClose();
   }
@@ -185,8 +218,35 @@ export function FoodSearchModal({ open, onClose, date, defaultMealType }: Props)
             </div>
           </div>
 
+          {/* Missing macro override */}
+          {usingManual && (
+            <div className="flex flex-col gap-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-3">
+              <p className="text-xs font-medium text-amber-700">
+                Macro data unavailable for this item. Enter values per 100g to track nutrition (optional).
+              </p>
+              <div className="grid grid-cols-4 gap-2">
+                {(["calories", "proteinG", "carbsG", "fatG"] as const).map((key) => (
+                  <div key={key} className="flex flex-col gap-0.5">
+                    <label className="text-xs text-amber-700 capitalize">
+                      {key === "calories" ? "kcal" : key === "proteinG" ? "Protein g" : key === "carbsG" ? "Carbs g" : "Fat g"}
+                    </label>
+                    <input
+                      type="number"
+                      min={0}
+                      step={0.1}
+                      placeholder="0"
+                      value={manualMacros[key]}
+                      onChange={(e) => setManualMacros((m) => ({ ...m, [key]: e.target.value }))}
+                      className="rounded border border-amber-300 bg-white px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-amber-400"
+                    />
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Macro preview */}
-          {previewMacros && (
+          {previewMacros && (hasMacros || Object.values(manualMacros).some((v) => v !== "")) && (
             <div className="grid grid-cols-4 gap-2 rounded-lg border border-green-100 bg-green-50 px-3 py-2 text-center">
               <MacroCell label="Calories" value={previewMacros.calories} unit="kcal" />
               <MacroCell label="Protein" value={previewMacros.proteinG} unit="g" />

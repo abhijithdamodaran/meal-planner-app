@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAddLogEntry } from "@/hooks/useDailyLog";
+import { useShoppingLists, useCreateList, useAddBulkItems } from "@/hooks/useShoppingList";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
 import type { DbRecipe } from "@/hooks/useRecipeSearch";
@@ -17,6 +18,7 @@ const MEALS = ["breakfast", "lunch", "dinner", "snack"] as const;
 export function RecipeDetailView({ recipe }: Props) {
   const router = useRouter();
   const [logOpen, setLogOpen] = useState(false);
+  const [shoppingOpen, setShoppingOpen] = useState(false);
   const [servings, setServings] = useState(String(recipe.servings ?? 1));
   const [mealType, setMealType] = useState<typeof MEALS[number]>("dinner");
   const today = new Date().toISOString().split("T")[0];
@@ -112,10 +114,17 @@ export function RecipeDetailView({ recipe }: Props) {
         </div>
       )}
 
-      {/* Log meal CTA */}
-      <Button onClick={() => setLogOpen(true)} className="mb-6 w-full">
-        Log this meal
-      </Button>
+      {/* CTAs */}
+      <div className="mb-6 flex gap-2">
+        <Button onClick={() => setLogOpen(true)} className="flex-1">
+          Log this meal
+        </Button>
+        {recipe.ingredients && recipe.ingredients.length > 0 && (
+          <Button variant="secondary" onClick={() => setShoppingOpen(true)}>
+            + Shopping list
+          </Button>
+        )}
+      </div>
 
       {/* Ingredients */}
       {recipe.ingredients && recipe.ingredients.length > 0 && (
@@ -149,6 +158,14 @@ export function RecipeDetailView({ recipe }: Props) {
             ))}
           </ol>
         </section>
+      )}
+
+      {/* Add to shopping list modal */}
+      {shoppingOpen && (
+        <AddToShoppingModal
+          ingredients={recipe.ingredients ?? []}
+          onClose={() => setShoppingOpen(false)}
+        />
       )}
 
       {/* Log modal */}
@@ -204,5 +221,173 @@ export function RecipeDetailView({ recipe }: Props) {
         </div>
       </Modal>
     </div>
+  );
+}
+
+interface Ingredient {
+  name: string;
+  amount: number;
+  unit: string;
+}
+
+function AddToShoppingModal({
+  ingredients,
+  onClose,
+}: {
+  ingredients: Ingredient[];
+  onClose: () => void;
+}) {
+  const { data: lists, isLoading } = useShoppingLists();
+  const createList = useCreateList();
+  const [selectedIds, setSelectedIds] = useState<Set<number>>(
+    () => new Set(ingredients.map((_, i) => i))
+  );
+  const [targetListId, setTargetListId] = useState<string>("");
+  const [newListName, setNewListName] = useState("");
+  const [done, setDone] = useState(false);
+
+  const firstListId = lists?.[0]?.id ?? "";
+  const effectiveListId = targetListId || firstListId;
+
+  const addBulk = useAddBulkItems(effectiveListId);
+
+  function toggleIngredient(i: number) {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(i)) next.delete(i);
+      else next.add(i);
+      return next;
+    });
+  }
+
+  async function handleAdd() {
+    let listId = effectiveListId;
+
+    if (!listId && newListName.trim()) {
+      const list = await createList.mutateAsync(newListName.trim()).catch(() => null);
+      if (!list) return;
+      listId = list.id;
+    }
+    if (!listId) return;
+
+    const items = ingredients
+      .filter((_, i) => selectedIds.has(i))
+      .map((ing) => ({
+        ingredientName: ing.name,
+        quantity: ing.amount > 0 ? ing.amount : undefined,
+        unit: ing.unit || undefined,
+      }));
+
+    // Use the correct list's hook — rebuild with the resolved listId
+    await fetch(`/api/shopping/${listId}/items`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ items }),
+    });
+
+    setDone(true);
+  }
+
+  if (done) {
+    return (
+      <Modal open onClose={onClose} title="Added to list">
+        <div className="flex flex-col items-center gap-4 p-6">
+          <div className="flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+            <svg className="h-6 w-6 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+            </svg>
+          </div>
+          <p className="text-sm text-gray-700">
+            {selectedIds.size} ingredient{selectedIds.size !== 1 ? "s" : ""} added to your shopping list.
+          </p>
+          <Button onClick={onClose} className="w-full">Done</Button>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal open onClose={onClose} title="Add to shopping list" maxWidth="md">
+      <div className="flex flex-col gap-4 p-4">
+        {/* List selector */}
+        <div className="flex flex-col gap-1">
+          <label className="text-sm font-medium text-gray-700">Add to list</label>
+          {isLoading ? (
+            <p className="text-sm text-gray-400">Loading lists…</p>
+          ) : lists && lists.length > 0 ? (
+            <select
+              value={targetListId || firstListId}
+              onChange={(e) => setTargetListId(e.target.value)}
+              className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+            >
+              {lists.map((l) => (
+                <option key={l.id} value={l.id}>{l.name}</option>
+              ))}
+            </select>
+          ) : (
+            <div className="flex flex-col gap-1">
+              <p className="text-xs text-gray-500">No lists yet — enter a name to create one:</p>
+              <input
+                type="text"
+                placeholder="e.g. This week"
+                value={newListName}
+                onChange={(e) => setNewListName(e.target.value)}
+                className="rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500"
+              />
+            </div>
+          )}
+        </div>
+
+        {/* Ingredient checkboxes */}
+        <div className="flex flex-col gap-1">
+          <div className="flex items-center justify-between">
+            <label className="text-sm font-medium text-gray-700">Ingredients</label>
+            <button
+              className="text-xs text-gray-400 hover:text-gray-600"
+              onClick={() =>
+                setSelectedIds(
+                  selectedIds.size === ingredients.length
+                    ? new Set()
+                    : new Set(ingredients.map((_, i) => i))
+                )
+              }
+            >
+              {selectedIds.size === ingredients.length ? "Deselect all" : "Select all"}
+            </button>
+          </div>
+          <div className="max-h-56 overflow-y-auto rounded-lg border border-gray-200 bg-white divide-y divide-gray-50">
+            {ingredients.map((ing, i) => (
+              <label
+                key={i}
+                className="flex cursor-pointer items-center gap-3 px-3 py-2 hover:bg-gray-50"
+              >
+                <input
+                  type="checkbox"
+                  checked={selectedIds.has(i)}
+                  onChange={() => toggleIngredient(i)}
+                  className="h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                />
+                <span className="flex-1 text-sm text-gray-800">{ing.name}</span>
+                <span className="text-xs text-gray-400">
+                  {ing.amount > 0 ? `${ing.amount} ` : ""}{ing.unit}
+                </span>
+              </label>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex gap-2">
+          <Button variant="secondary" onClick={onClose}>Cancel</Button>
+          <Button
+            onClick={handleAdd}
+            loading={addBulk.isPending || createList.isPending}
+            disabled={selectedIds.size === 0 || (!effectiveListId && !newListName.trim())}
+            className="flex-1"
+          >
+            Add {selectedIds.size} item{selectedIds.size !== 1 ? "s" : ""}
+          </Button>
+        </div>
+      </div>
+    </Modal>
   );
 }

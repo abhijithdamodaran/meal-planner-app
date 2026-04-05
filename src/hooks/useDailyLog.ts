@@ -30,6 +30,11 @@ export interface AddLogEntryInput {
   recipeId?: string;
   customRecipeId?: string;
   customName?: string;
+  // Manual macro override for foods with missing nutrition data
+  manualCalories?: number;
+  manualProteinG?: number;
+  manualCarbsG?: number;
+  manualFatG?: number;
 }
 
 export interface UpdateLogEntryInput {

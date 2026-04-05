@@ -46,6 +46,7 @@ export function AddToSlotModal({ open, onClose, weekStart, dayOfWeek, mealType, 
     customRecipeId?: string;
     foodItemId?: string;
     customFoodId?: string;
+    customName?: string;
   }
 
   function selectRecipe(r: { externalId: string; source: string; title: string }) {
@@ -68,6 +69,11 @@ export function AddToSlotModal({ open, onClose, weekStart, dayOfWeek, mealType, 
     setServings("1");
   }
 
+  function selectCustomName(name: string) {
+    setPendingItem({ type: "recipe", label: name, customName: name });
+    setServings("1");
+  }
+
   async function handleAdd() {
     if (!pendingItem) return;
     await addEntry.mutateAsync({
@@ -80,6 +86,7 @@ export function AddToSlotModal({ open, onClose, weekStart, dayOfWeek, mealType, 
       customRecipeId: pendingItem.customRecipeId,
       foodItemId: pendingItem.foodItemId,
       customFoodId: pendingItem.customFoodId,
+      customName: pendingItem.customName,
     });
     handleClose();
   }
@@ -177,7 +184,15 @@ export function AddToSlotModal({ open, onClose, weekStart, dayOfWeek, mealType, 
                     <p className="px-4 py-6 text-center text-sm text-gray-400">Searching…</p>
                   )}
                   {!recipesLoading && submittedQuery && recipes.length === 0 && (
-                    <p className="px-4 py-6 text-center text-sm text-gray-400">No results.</p>
+                    <div className="flex flex-col items-center gap-2 px-4 py-6 text-center">
+                      <p className="text-sm text-gray-400">No results.</p>
+                      <button
+                        onClick={() => selectCustomName(submittedQuery)}
+                        className="rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:border-green-400 hover:text-green-700"
+                      >
+                        + Add &ldquo;{submittedQuery}&rdquo; as custom item
+                      </button>
+                    </div>
                   )}
                   {!submittedQuery && (
                     <p className="px-4 py-6 text-center text-sm text-gray-400">Type a recipe name and press Search.</p>
@@ -219,7 +234,15 @@ export function AddToSlotModal({ open, onClose, weekStart, dayOfWeek, mealType, 
                     <p className="px-4 py-6 text-center text-sm text-gray-400">Searching…</p>
                   )}
                   {!foodsLoading && foodQuery.length >= 2 && foods.length === 0 && (
-                    <p className="px-4 py-6 text-center text-sm text-gray-400">No results.</p>
+                    <div className="flex flex-col items-center gap-2 px-4 py-6 text-center">
+                      <p className="text-sm text-gray-400">No results.</p>
+                      <button
+                        onClick={() => selectCustomName(foodQuery.trim())}
+                        className="rounded-lg border border-dashed border-gray-300 px-3 py-1.5 text-sm text-gray-600 hover:border-green-400 hover:text-green-700"
+                      >
+                        + Add &ldquo;{foodQuery.trim()}&rdquo; as custom item
+                      </button>
+                    </div>
                   )}
                   {foodQuery.length < 2 && (
                     <p className="px-4 py-6 text-center text-sm text-gray-400">Type at least 2 characters.</p>
