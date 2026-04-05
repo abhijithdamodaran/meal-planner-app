@@ -1,15 +1,9 @@
 import { getSession } from "@/lib/auth";
 import { prisma } from "@/lib/prisma";
-import { DailySummaryCard } from "@/components/dashboard/DailySummaryCard";
-import { WeeklyTable } from "@/components/dashboard/WeeklyTable";
-import { QuickAddCard } from "@/components/dashboard/QuickAddCard";
+import { DashboardShell } from "./DashboardShell";
 
 export default async function DashboardPage() {
   const session = await getSession();
-  const today = new Date().toISOString().split("T")[0];
-
-  // 7 days ago
-  const sevenDaysAgo = new Date(Date.now() - 6 * 24 * 60 * 60 * 1000).toISOString().split("T")[0];
 
   const prefs = session
     ? await prisma.userPreferences.findUnique({ where: { userId: session!.userId } })
@@ -31,14 +25,14 @@ export default async function DashboardPage() {
         <p className="mt-0.5 text-sm text-gray-500">Here&apos;s how you&apos;re tracking today.</p>
       </div>
 
-      <DailySummaryCard date={today} goals={goals} />
-      <QuickAddCard date={today} />
-      <WeeklyTable from={sevenDaysAgo} to={today} goals={goals} />
+      {/* DashboardShell is a client component — computes today in the browser timezone */}
+      <DashboardShell goals={goals} />
     </div>
   );
 }
 
 function getGreeting() {
+  // Server-side: use UTC hour. Close enough for greeting; not used for date logic.
   const h = new Date().getUTCHours();
   if (h < 12) return "morning";
   if (h < 17) return "afternoon";

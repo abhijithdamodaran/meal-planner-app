@@ -2,14 +2,16 @@
 
 import { useState } from "react";
 import { WeekGrid } from "@/components/planner/WeekGrid";
+import { localDateString } from "@/lib/date";
 
 function getWeekStart(date: Date): string {
   const d = new Date(date);
-  d.setUTCHours(0, 0, 0, 0);
-  const day = d.getUTCDay(); // 0=Sun
+  // Use local time so Mon–Sun week boundary matches the user's timezone
+  d.setHours(0, 0, 0, 0);
+  const day = d.getDay(); // 0=Sun, local time
   const diff = day === 0 ? -6 : 1 - day;
-  d.setUTCDate(d.getUTCDate() + diff);
-  return d.toISOString().split("T")[0];
+  d.setDate(d.getDate() + diff);
+  return localDateString(d);
 }
 
 function offsetWeek(weekStart: string, weeks: number): string {

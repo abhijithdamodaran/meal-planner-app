@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { localToday, offsetDate } from "@/lib/date";
 import { useDailyLog, useDeleteLogEntry, type LogEntry } from "@/hooks/useDailyLog";
 import { FoodSearchModal } from "@/components/food/FoodSearchModal";
 import { EditLogEntryModal } from "@/components/food/EditLogEntryModal";
@@ -30,17 +31,11 @@ interface Props {
 
 function formatDate(dateStr: string) {
   const d = new Date(`${dateStr}T00:00:00Z`);
-  const today = new Date().toISOString().split("T")[0];
-  const yesterday = new Date(Date.now() - 86400000).toISOString().split("T")[0];
+  const today = localToday();
+  const yesterday = offsetDate(today, -1);
   if (dateStr === today) return "Today";
   if (dateStr === yesterday) return "Yesterday";
   return d.toLocaleDateString("en-US", { weekday: "long", month: "short", day: "numeric", timeZone: "UTC" });
-}
-
-function offsetDate(dateStr: string, days: number): string {
-  const d = new Date(`${dateStr}T00:00:00Z`);
-  d.setUTCDate(d.getUTCDate() + days);
-  return d.toISOString().split("T")[0];
 }
 
 export function DailyLogView({ date, goals }: Props) {
@@ -64,7 +59,7 @@ export function DailyLogView({ date, goals }: Props) {
     setDeletingId(null);
   }
 
-  const today = new Date().toISOString().split("T")[0];
+  const today = localToday();
 
   // Totals
   const totals = entries.reduce(

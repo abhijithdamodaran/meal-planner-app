@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useDeletePlanEntry, useUpdatePlanEntry } from "@/hooks/useMealPlan";
 import { useAddLogEntry } from "@/hooks/useDailyLog";
+import { localToday } from "@/lib/date";
 import type { PlanEntry } from "@/hooks/useMealPlan";
 import type { MealType } from "@/types";
 
@@ -27,7 +28,7 @@ export function MealSlot({ weekStart, entries, date, onAdd }: Props) {
   const router = useRouter();
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editServings, setEditServings] = useState("1");
-  const today = new Date().toISOString().split("T")[0];
+  const today = localToday();
 
   async function handleDelete(id: string) {
     await deleteEntry.mutateAsync(id).catch(() => {});

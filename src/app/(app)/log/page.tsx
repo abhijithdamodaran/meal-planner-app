@@ -1,7 +1,13 @@
-import { redirect } from "next/navigation";
+"use client";
 
-// /log always shows today — redirect to dated route so date is in the URL
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+import { localToday } from "@/lib/date";
+
 export default function LogIndexPage() {
-  const today = new Date().toISOString().split("T")[0];
-  redirect(`/log/${today}`);
+  const router = useRouter();
+  useEffect(() => {
+    router.replace(`/log/${localToday()}`);
+  }, [router]);
+  return null;
 }

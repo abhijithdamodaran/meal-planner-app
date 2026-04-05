@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useMealPlan } from "@/hooks/useMealPlan";
+import { localToday } from "@/lib/date";
 import { MealSlot } from "./MealSlot";
 import { AddToSlotModal } from "./AddToSlotModal";
 import type { MealType } from "@/types";
@@ -38,7 +39,7 @@ function formatDayDate(weekStart: string, dayOfWeek: number): string {
 export function WeekGrid({ weekStart }: Props) {
   const { data: plan, isLoading } = useMealPlan(weekStart);
   const [activeSlot, setActiveSlot] = useState<Slot | null>(null);
-  const today = new Date().toISOString().split("T")[0];
+  const today = localToday();
 
   if (isLoading) {
     return <div className="py-12 text-center text-sm text-gray-400">Loading planner…</div>;

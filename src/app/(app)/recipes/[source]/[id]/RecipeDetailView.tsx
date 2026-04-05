@@ -4,6 +4,7 @@ import { useState } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useAddLogEntry } from "@/hooks/useDailyLog";
+import { localToday } from "@/lib/date";
 import { useShoppingLists, useCreateList, useAddBulkItems } from "@/hooks/useShoppingList";
 import { Button } from "@/components/ui/Button";
 import { Modal } from "@/components/ui/Modal";
@@ -21,7 +22,7 @@ export function RecipeDetailView({ recipe }: Props) {
   const [shoppingOpen, setShoppingOpen] = useState(false);
   const [servings, setServings] = useState(String(recipe.servings ?? 1));
   const [mealType, setMealType] = useState<typeof MEALS[number]>("dinner");
-  const today = new Date().toISOString().split("T")[0];
+  const today = localToday();
   const addEntry = useAddLogEntry(today);
 
   const isTheMealDB = recipe.source === "themealdb";

@@ -1,6 +1,7 @@
 "use client";
 
 import { useWeeklySummary } from "@/hooks/useWeeklySummary";
+import { localToday } from "@/lib/date";
 
 interface Goals {
   calories: number | null;
@@ -17,7 +18,7 @@ interface Props {
 
 function formatDay(dateStr: string) {
   const d = new Date(`${dateStr}T00:00:00Z`);
-  const today = new Date().toISOString().split("T")[0];
+  const today = localToday();
   if (dateStr === today) return "Today";
   return d.toLocaleDateString("en-US", { weekday: "short", timeZone: "UTC" });
 }
