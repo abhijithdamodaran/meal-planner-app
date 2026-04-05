@@ -22,12 +22,12 @@ async function main() {
   });
   console.log(`Created household: ${household.name} (invite code: ${household.inviteCode})`);
 
-  // Create user 1 (you)
+  // Create user 1
   const user1 = await prisma.user.create({
     data: {
-      email: "abhi@example.com",
+      email: "john@example.com",
       passwordHash: await bcrypt.hash("password123", 12),
-      name: "Abhi",
+      name: "John",
       householdId: household.id,
       preferences: {
         create: {
@@ -40,12 +40,12 @@ async function main() {
     },
   });
 
-  // Create user 2 (wife)
+  // Create user 2
   const user2 = await prisma.user.create({
     data: {
-      email: "wife@example.com",
+      email: "jane@example.com",
       passwordHash: await bcrypt.hash("password123", 12),
-      name: "Wife",
+      name: "Jane",
       householdId: household.id,
       preferences: {
         create: {
@@ -66,8 +66,8 @@ async function main() {
   console.log(`Created user: ${user1.name} (${user1.email})`);
   console.log(`Created user: ${user2.name} (${user2.email})`);
   console.log("\nSeed credentials:");
-  console.log("  abhi@example.com / password123");
-  console.log("  wife@example.com / password123");
+  console.log("  john@example.com / password123");
+  console.log("  jane@example.com / password123");
   console.log(`\nHousehold invite code: ${household.inviteCode}`);
 }
 
