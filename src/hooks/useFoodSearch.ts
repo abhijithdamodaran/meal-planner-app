@@ -1,5 +1,6 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
 
 export interface FoodSearchResult {
@@ -27,10 +28,17 @@ async function fetchFoodSearch(query: string): Promise<SearchResponse> {
 }
 
 export function useFoodSearch(query: string) {
+  const [debouncedQuery, setDebouncedQuery] = useState(query);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setDebouncedQuery(query), 350);
+    return () => clearTimeout(timer);
+  }, [query]);
+
   return useQuery({
-    queryKey: ["food-search", query],
-    queryFn: () => fetchFoodSearch(query),
-    enabled: query.trim().length >= 2,
+    queryKey: ["food-search", debouncedQuery],
+    queryFn: () => fetchFoodSearch(debouncedQuery),
+    enabled: debouncedQuery.trim().length >= 2,
     staleTime: 5 * 60 * 1000,
   });
 }

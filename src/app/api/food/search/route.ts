@@ -25,26 +25,36 @@ export async function GET(request: NextRequest) {
 
   const { q } = parsed.data;
 
-  // Run all three sources in parallel
-  const [offResults, usdaResults, customFoods] = await Promise.all([
+  // Run all sources in parallel: DB cache, external APIs, custom foods
+  const [cachedItems, offResults, usdaResults, customFoods] = await Promise.all([
+    // Search already-cached FoodItems in DB (covers seeded Indian foods + past searches)
+    prisma.foodItem.findMany({
+      where: { name: { contains: q, mode: "insensitive" } },
+      orderBy: { name: "asc" },
+      take: 30,
+    }),
     searchOpenFoodFacts(q).catch(() => [] as OFFProduct[]),
     searchUSDA(q).catch(() => [] as USDAProduct[]),
     prisma.customFood.findMany({
       where: {
         userId: session.userId,
-        name: { contains: q },
+        name: { contains: q, mode: "insensitive" },
       },
       orderBy: { createdAt: "desc" },
       take: 10,
     }),
   ]);
 
-  // Merge OFF + USDA; deduplicate by offId then by lowercase name
-  const merged: FoodProduct[] = [...offResults];
-  const seenIds = new Set(offResults.map((p) => p.offId));
-  const seenNames = new Set(offResults.map((p) => p.name.toLowerCase()));
+  // Start with DB cache results (already have DB ids, no upsert needed)
+  const cachedIds = new Set(cachedItems.map((c) => c.offId));
+  const cachedNames = new Set(cachedItems.map((c) => c.name.toLowerCase()));
 
-  for (const p of usdaResults) {
+  // Merge OFF + USDA; skip items already in DB cache (by offId or name)
+  const merged: FoodProduct[] = [];
+  const seenIds = new Set(cachedIds);
+  const seenNames = new Set(cachedNames);
+
+  for (const p of [...offResults, ...usdaResults]) {
     if (seenIds.has(p.offId)) continue;
     if (seenNames.has(p.name.toLowerCase())) continue;
     seenIds.add(p.offId);
@@ -52,8 +62,7 @@ export async function GET(request: NextRequest) {
     merged.push(p);
   }
 
-  // Upsert all API results to get back their database IDs.
-  // We need the DB ids so the food log API can link entries correctly.
+  // Upsert only the API results not already in DB
   const upserted = await Promise.all(
     merged.map(async (p) => {
       try {
@@ -86,8 +95,14 @@ export async function GET(request: NextRequest) {
     })
   );
 
+  // Combine: cached DB items first (fast, reliable), then new API results
+  const foodItems = [
+    ...cachedItems.map((item) => ({ ...item, type: "food_item" as const })),
+    ...upserted.filter(Boolean),
+  ];
+
   return NextResponse.json({
-    foodItems: upserted.filter(Boolean),
+    foodItems,
     customFoods: customFoods.map((f) => ({ ...f, type: "custom_food" as const })),
   });
 }
